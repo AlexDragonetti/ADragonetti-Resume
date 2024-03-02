@@ -1,0 +1,302 @@
+---
+title: "Cleaning and Reformatting Data for Interactive Visualization"
+author: "Alex Dragonetti"
+date: "3-2-2024"
+output:
+  html_document: 
+    toc: yes
+    toc_float: yes
+    number_sections: yes
+    toc_collapsed: yes
+    code_folding: hide
+    code_download: yes
+    smooth_scroll: true
+    theme: lumen
+editor_options:
+  chunk_output_type: inline
+---
+```{=html}
+
+<style type="text/css">
+
+/* Cascading Style Sheets (CSS) is a stylesheet language used to describe the presentation of a document written in HTML or XML. it is a simple mechanism for adding style (e.g., fonts, colors, spacing) to Web documents. */
+
+h1.title {  /* Title - font specifications of the report title */
+  font-size: 24px;
+  color: DarkRed;
+  text-align: center;
+  font-family: "Gill Sans", sans-serif;
+}
+h4.author { /* Header 4 - font specifications for authors  */
+  font-size: 20px;
+  font-family: system-ui;
+  color: DarkRed;
+  text-align: center;
+}
+h4.date { /* Header 4 - font specifications for the date  */
+  font-size: 18px;
+  font-family: system-ui;
+  color: DarkBlue;
+  text-align: center;
+}
+h1 { /* Header 1 - font specifications for level 1 section title  */
+    font-size: 22px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: center;
+}
+h2 { /* Header 2 - font specifications for level 2 section title */
+    font-size: 20px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h3 { /* Header 3 - font specifications of level 3 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: navy;
+    text-align: left;
+}
+
+h4 { /* Header 4 - font specifications of level 4 section title  */
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+    color: darkred;
+    text-align: left;
+}
+
+body { background-color:white; }
+
+.highlightme { background-color:yellow; }
+
+p { background-color:white; }
+
+</style>
+```
+
+```{r setup, include=FALSE}
+# Detect, install, and load packages if needed.
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+if (!require("leaflet")) {
+   install.packages("leaflet")
+   library(leaflet)
+}
+if (!require("EnvStats")) {
+   install.packages("EnvStats")
+   library(EnvStats)
+}
+if (!require("MASS")) {
+   install.packages("MASS")
+   library(MASS)
+}
+if (!require("phytools")) {
+   install.packages("phytools")
+   library(phytools)
+}
+if (!require("dplyr")) {
+   install.packages("dplyr")
+   library(dplyr)
+}
+if (!require("tidyr")) {
+   install.packages("tidyr")
+   library(tidyr)
+}
+if (!require("stringr")) {
+   install.packages("stringr")
+   library(stringr)
+}
+if (!require("ggplot2")) {
+   install.packages("ggplot2")
+   library(ggplot2)
+}
+if (!require("plotly")) {
+   install.packages("plotly")
+   library(plotly)
+}
+# Specifications of outputs of code in code chunks
+knitr::opts_chunk$set(echo = TRUE,       
+                      warning = FALSE,   
+                      result = TRUE,   
+                      message = FALSE,
+                      comment = NA)
+```
+
+
+
+# Overview
+
+
+We have been tasked with cleaning and reorganizing four exisiting data sets. The four data sets each contain different data related to life expectancy in different countries. Our goal will be to combine them into one that can be used for statistical analysis and visualization.
+
+3 of the 4 data sets are organized in a 'wide' format. For example, the 'income' data set has 220 columns. Column 1 is the country of interest, and each subsequent column is a year, from 1800-2018 (inclusive). Each year variable starts with a capital 'X'.
+```{r, echo=FALSE}
+ipp<-read.csv("https://pengdsci.github.io/datasets/income_per_person.csv")
+ley<-read.csv("https://pengdsci.github.io/datasets/life_expectancy_years.csv")
+pop<-read.csv("https://pengdsci.github.io/datasets/population_total.csv")
+cr<-read.csv("https://pengdsci.github.io/datasets/countries_total.csv")
+```
+
+
+
+# Cleaning and Re-formatting the Data
+
+
+We will first condense those 3 data sets to a data set with 3 columns. This will allow an easier merge. In the process of doing this, we will remove the "X" from the start of each year.
+```{r}
+ipp.long <- ipp %>%
+  pivot_longer(cols = starts_with("X"), names_to = "year", values_to = "income") %>%
+  mutate(year = as.numeric(str_remove(year, "^X"))) 
+
+ley.long <- ley %>%
+  pivot_longer(cols = starts_with("X"), names_to = "year", values_to = "lifeExp") %>%
+  mutate(year = as.numeric(str_remove(year, "^X"))) 
+
+pop.long <- pop %>%
+  pivot_longer(cols = starts_with("X"), names_to = "year", values_to = "population") %>%
+  mutate(year = as.numeric(str_remove(year, "^X"))) 
+```
+
+We have been asked to create a dataset called `LifeExpIncom` that only contains Life Expectancy and Income. The requested format is lower case for all variables except for 'lifeExp' for life expectancy.
+
+We will also merge the remaining data into one set. The final data sets will replace 'geo' with 'country', per request of our assignment.
+```{r}
+LifeExpIncom <- merge(ipp.long, ley.long, by = c("geo", "year"))
+
+merge.df.1 <- merge(LifeExpIncom, pop.long, by = c("geo", "year"))
+
+colnames(cr)[1]<-"geo"
+merge.df.2 <-merge(merge.df.1, cr, by = "geo")
+
+colnames(LifeExpIncom)[1]<-"country"
+colnames(merge.df.2)[1]<-"country"
+
+#write.csv(merge.df.2, "C:\\Users\\Alex\\Documents\\R\\Grad\\553\\datasets\\wk5.csv")
+```
+
+Our data is now in one dataset, ready for visualization. A copy of this data can be found at https://raw.githubusercontent.com/AlexDragonetti/STA553/main/hw5/wk5.csv
+
+
+
+# Subsetting the Data to Analyze the Year 2000
+
+
+We have been asked to create a dataset for the year 2000 and visualize it. First, we must create the data:
+```{r}
+"2000data"<-subset(merge.df.2, year==2000)
+#for some reason, R encounters an error while viewing "2000data", so I have created a second df that is identical
+twothousanddata<-subset(merge.df.2, year==2000)
+
+#write.csv(twothousanddata, "C:\\Users\\Alex\\Documents\\R\\Grad\\553\\datasets\\2000data.csv")
+```
+
+A copy of the above data can be found at https://raw.githubusercontent.com/AlexDragonetti/STA553/main/hw5/2000data.csv 
+
+
+# Visualizing the Data for the Year 2000
+
+We have been asked to visually represent data from all four sets in one graph, and specifically asked to represent region with a color-code. Population size being represented with point size seems logical, meaning our graph will have income on the X axis and Life Expectancy on the Y axis. This uses the `ggplot` package.
+```{r}
+life.exp.plot<-ggplot(twothousanddata, aes (x=income, y=lifeExp, color=region, size=population))+geom_point()+scale_color_manual(values=c("#332288", "#117733", "#88CCEE", "#CC6677", "#882255"))+
+  labs(
+  x="Income",
+  y="Life Expectancy",
+  size="Population",
+  color="Region",
+  title="Association Between Income and Life Expectancy")
+
+life.exp.plot
+```
+
+Our graph shows evidence of a few trends: first, African and Asian countries appear to have incredibly high variance for life expectancy. Additionally, there appears to be a linear relationship between income and life expectancy, but that (obviously) must stop somewhere. It appears that beyond an average income of ~$40,000 (~$73,000 adjusted for 2024, using the US Bureau of Labor Statistics' CPI Inflation Calculator), the relationship between income and life expectancy plateaus.
+
+As this is only an analysis of one year, we would suggest analyzing the relationship between income, population size, and life expectancy across multiple years of interest to see if or how this relationship changes, or what it averages to over an era of interest.
+
+
+
+# Using Interactive Plots to Improve Visualization
+
+
+While our previous plot provides an overview and can help assess trends, we will use two interactive visuals to allow for deeper engagement with data. Our first graph will look similar to our last, but allow a reader to check a country (and its data). Our second will show how the data has changed year to year. For our interactive plots, we will use the `plotly` package.
+
+
+## First Interactive plot: Income and Life Expectancy in 2015
+
+
+```{r}
+df.full<-read.csv("https://raw.githubusercontent.com/AlexDragonetti/STA553/main/hw5/wk5.csv")
+
+df.2015<-subset(df.full, year==2015)
+
+plot_ly(
+  data=df.2015,
+  x=~income,
+  y=~lifeExp,
+  customdata=~population,
+  color=~factor(region),
+  hovertext=~country,
+  hoverlabel=~population,
+  size=~(log(population)),
+  alpha=.8,
+  type="scatter",
+  mode="markers",
+  hovertemplate=paste(  '<br><b>Country</b>: %{hovertext}',
+                        '<br><b>Income</b>: %{x}',
+  '<br><b>Life Expectancy</b>: %{y}',
+  '<br><b>Population</b>: %{customdata}'
+)
+) %>%
+  layout(
+    title=list(text= "Association of Income and Life Expectancy, 2015"
+             ),
+    xaxis=list(title=list(text="Income" 
+              )),
+    yaxis=list(title=list(text="Life Expectancy" 
+               )))
+```
+
+The above graph is interactive with  one's mouse - if you move your mouse over a dot, it will give you the following info for the specific data point: country, income, life expectancy, and population. The region (continent) continues to be color-coded.
+
+
+
+## Second Interactive Plot: Visualizing the Data by Year
+
+
+```{r}
+wong.pal <- c("#E69F00", "#56B4E9", "#009E73","#CC79A7", "#0072B2")
+wong.pal <- setNames(wong.pal, c("Asia", "Europe", "Africa", "Americas", "Oceania"))
+
+
+fig2 <- df.full %>%
+  plot_ly(
+    x = ~income, 
+    y = ~lifeExp, 
+    size = ~(2*log(population)-11)^2,
+    color = ~region, 
+    colors = wong.pal, 
+    frame = ~year,  
+    text = ~paste("Country:", country,
+                  "<br>Continent:", region,
+                  "<br>Year:", year,
+                  "<br>LifeExp:", lifeExp,
+                  "<br>Pop:", population,
+                  "<br>Income:", income),
+    hoverinfo = "text",
+    type = 'scatter',
+    mode = 'markers'
+  )%>%
+  layout(xaxis=list(title='Income'), yaxis=list(title='Life Expectancy'), title="Association of Income and Life Expectancy, 1800-2018")
+
+fig2 <- fig2 %>% layout(
+  xaxis = list(
+    type = "log"
+  )
+)
+
+fig2
+```
+
+The above graph is able to represent all of the information from previous visualizations over every available year. Please note the scaling in the x axis, which allows a viewer to see a meaningful difference in income, even at lower levels (without it, the first century of data appears to show little horizontal change).
